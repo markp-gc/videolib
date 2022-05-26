@@ -1,79 +1,20 @@
-# Ubuntu Build Instructions (Only tested on 18.04 LTS)
+# Videolib
 
-1. Intall the required packages from the provided file:
-```
-$ sudo apt install $(cat ubuntu_apt_requirements.txt)
-```
+This is a fork of only the video processing components from: https://github.com/mpups/development.
 
-2. Build GTest:
-The Ubuntu package for GTest only installs the headers and source &#x1F644;:
-```
-$ mkdir gtest_build
-$ cd gtest_build/
-$ cmake /usr/src/googletest/googletest
-$ make
-$ sudo cp lib/libgtest* /usr/lib/
-```
+The library provides wrappers for encoding and decoding video using `libavcodec`. The key additional
+functionality provided by this library, not commonly possible in other libraries, is the ability to give
+fine grained control of video streaming so that individual video codec packets can be interleaved with
+other data on the same link without the video data consuming all the bandwidth and/or increasing latency
+of other smaller packets.
 
-2. Install the dependencies that are not available via apt. These are currently:
-- Lua 5.2 https://www.lua.org/
-- GLK https://github.com/mpups/glk
-
-3. Build using scons:
-```
-$ scons
-```
-
-4. If anything fails your version of Ubuntu might install the dependencies
-in differing locations. Check the location for any missing dependencies in
-`site_scons/deps/*.py`. You can also attempt to use custom installations of
-any library by changing the search paths in the `deps/*.py`.
-
-5. To see advanced build options including cross compiling type `scons -h`
-
-# Android Build Instructions for robolib
-
-The android configuration only builds a subset of libraries and programs
-that enable the supported Andoid robolib client side apps (available in a
-separate repo).
-
-1. Download Android Studio and install the latest NDK version compatible with your device
-(the same NDK must be used to build the pre-requisites and this repo).
-
-2. First you need to build and install libav for the Android architectures you will target.
-You should acquire the matching libav version for the Ubuntu dustribution you will be using on
-the server as follows:
-```
-$ mkdir ffmpeg_builds
-$ cd ffmpeg_builds
-$ apt source libavformat-dev
-$ cp -r ffmpeg-3.4.6/ ffmpeg-3.4.6_android_<arch-name>
-```
-
-You should then configure to cross-compile with the same NDK and architecture(s) as you will use later e.g.:
-
-```
-$ ./configure --disable-everything --enable-shared --enable-small \
---enable-cross-compile \
---sysroot=$HOME/Android/Sdk/ndk/21.1.6352462/toolchains/llvm/prebuilt/linux-x86_64/sysroot/ \
---cross-prefix=$HOME/Android/Sdk/ndk/21.1.6352462/toolchains/llvm/prebuilt/linux-x86_64/bin/arm-linux-androideabi- \
---cc=$HOME/Android/Sdk/ndk/21.1.6352462/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi29-clang \
---arch=armv7-a \
---target-os=android \
---disable-symver \
---prefix=$HOME/development/install/android/armeabi-v7a/ffmpeg \
---extra-cflags='-mfloat-abi=softfp -O3 -fno-integrated-as' \
---enable-muxer=m4v --enable-demuxer=m4v \
---enable-encoder=mpeg4 --enable-decoder=mpeg4
-$ make
-```
-
-Configure NOTES:
-a) -fno-integrated-as is a workaround for an ASM bug when compiling with clang.
-b) If you get errors about text relocations at runtime you need to rebuild with the flag --disable-asm (gives poor performance).
-
-3. Edit the Android specific paths in `site_scons/compilers.py` to point to your NDK then build:
-
-```
-$ scons --platform=android
-```
+This solves a critical problem with TCP/IP that is not easy to work around. For example, even if the video
+was provided on a separate socket (e.g video on dedicated TCP socket, smaller packets on separate TCP socket
+or via UDP) it is the nature of the TCP protocol to consume as much bandwith as it can, only backing off when
+the link becomes unreliable. Effectively the TCP protocol was not designed to play nice and share this is why,
+for example, game stores will pause or throttle downloads while you are gaming. However, in the use case this
+library was intended for we care equally about low or deterministic latency of small packets (e.g. real-time
+control data or telemetry) and maintaining the throughput of bulk transfers (video). For details of the
+conflicting requirements between small packets and bulk data transmission over standard protocols see:
+- [Analyzing the effect of TCP and server population on massively multiplayer games](https://dl.acm.org/doi/abs/10.1155/2014/602403)
+- [Redundant bundling in TCP to reduce perceived latency for time-dependent thin streams](https://ieeexplore.ieee.org/abstract/document/4489685)
