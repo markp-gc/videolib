@@ -1,15 +1,20 @@
-#include "../../video/FourCc.h"
-#include "../../video/LibAvWriter.h"
-#include "../../video/LibAvCapture.h"
-#include "../../video/FFmpegCustomIO.h"
-#include "../../video/VideoFrame.h"
-#include "../../video/FFmpegStdFunctionIO.h"
+#define BOOST_TEST_MAIN
+#define BOOST_TEST_DYN_LINK
 
-#include <gtest/gtest.h>
+#include <boost/test/unit_test.hpp>
+
+#include "../video/FourCc.h"
+#include "../video/LibAvWriter.h"
+#include "../video/LibAvCapture.h"
+#include "../video/FFmpegCustomIO.h"
+#include "../video/VideoFrame.h"
+#include "../video/FFmpegStdFunctionIO.h"
 
 #include <string>
 #include <iostream>
 #include <fstream>
+
+#include <sys/stat.h>
 
 const int FRAME_WIDTH   = 640;
 const int FRAME_HEIGHT  = 480;
@@ -24,14 +29,14 @@ void RunWriter( FFMpegCustomIO& videoIO )
 {
     // Write video into memory buffers:
     LibAvWriter writer( videoIO );
-    ASSERT_TRUE( writer.IsOpen() );
+    BOOST_CHECK( writer.IsOpen() );
 
     bool streamCreated = writer.AddVideoStream( STREAM_WIDTH, STREAM_HEIGHT, 30, video::FourCc( 'F','M','P','4' ) );
-    ASSERT_TRUE( streamCreated );
+    BOOST_CHECK( streamCreated );
 
     uint8_t* buffer;
     int err = posix_memalign( (void**)&buffer, 16, 640*480 );
-    ASSERT_EQ( 0, err );
+    BOOST_CHECK_EQUAL( 0, err );
 
     VideoFrame frame( buffer, AV_PIX_FMT_GRAY8, FRAME_WIDTH, FRAME_HEIGHT, FRAME_WIDTH );
 
@@ -39,7 +44,7 @@ void RunWriter( FFMpegCustomIO& videoIO )
     {
         memset( buffer, i, FRAME_WIDTH*FRAME_HEIGHT );
         bool frameWritten = writer.PutVideoFrame( frame );
-        ASSERT_TRUE( frameWritten );
+        BOOST_CHECK( frameWritten );
     }
 
     free( buffer );
@@ -49,17 +54,20 @@ void RunReader( FFMpegCustomIO& videoIn )
 {
     uint8_t* buffer;
     int err = posix_memalign( (void**)&buffer, 16, FRAME_WIDTH*FRAME_HEIGHT );
-    ASSERT_EQ( 0, err );
+    BOOST_CHECK_EQUAL( 0, err );
 
     // Now try to read back the same video
     LibAvCapture reader( videoIn );
-    ASSERT_TRUE( reader.IsOpen() );
+    BOOST_CHECK( reader.IsOpen() );
 
     int decodedCount = 0;
     while ( reader.GetFrame() )
     {
         reader.ExtractLuminanceImage( buffer, 640 );
-        EXPECT_EQ( buffer[0], decodedCount );
+        BOOST_CHECK_EQUAL( buffer[0], decodedCount );
+        if (buffer[0] != decodedCount) {
+          std::cerr << "img value: " << (int)buffer[0] << " expected: " << (int)decodedCount << "\n";
+        }
 
         /// timespec stamp = reader.GetFrameTimestamp();
         /// @todo Implement user settable timestamp and test it here.
@@ -68,7 +76,7 @@ void RunReader( FFMpegCustomIO& videoIn )
         decodedCount += 1;
     }
 
-    EXPECT_EQ( 256, decodedCount );
+    BOOST_CHECK_EQUAL( 256, decodedCount );
 
     free( buffer );
 }
@@ -76,11 +84,11 @@ void RunReader( FFMpegCustomIO& videoIn )
 /**
     Test video read/write using FFMpegFileIO.
 */
-void TestVideo()
+BOOST_AUTO_TEST_CASE(TestVideo)
 {
     // test fourcc code generation:
     int32_t fourcc = video::FourCc( 'y','u','y','v' );
-    EXPECT_EQ( fourcc, 0x56595559 );
+    BOOST_CHECK_EQUAL( fourcc, 0x56595559 );
 
     FFMpegFileIO videoOut( "test.avi", false );
     RunWriter( videoOut );
@@ -98,10 +106,10 @@ void TestVideo()
     // Check no file opened after writer was destroyed:
     struct stat info;
     int fileCreated = stat( noFile, &info );
-    EXPECT_EQ( -1, fileCreated ); // should return -1 for non existent file
+    BOOST_CHECK_EQUAL( -1, fileCreated ); // should return -1 for non existent file
 }
 
-void TestStdFunctionIO()
+BOOST_AUTO_TEST_CASE(TestStdFunctionIO)
 {
     using namespace std;
     string testFileName( "ofstream.avi" );
@@ -129,14 +137,3 @@ void TestStdFunctionIO()
 
     RunReader( videoIn );
 }
-
-TEST( video, file )
-{
-    TestVideo();
-}
-
-TEST( video, stdfunction )
-{
-    TestStdFunctionIO();
-}
-
