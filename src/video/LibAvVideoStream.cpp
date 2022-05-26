@@ -84,6 +84,10 @@ LibAvVideoStream::LibAvVideoStream( AVFormatContext* context, uint32_t width, ui
         if ( fps == 0) { fps = 1; }
         CodecContext()->time_base.den = fps; /** @todo - we want to enable non-fixed fps content so need to allow caller to specify time-base somehow. */
 
+        m_stream->time_base = CodecContext()->time_base;
+
+        avcodec_parameters_from_context(m_stream->codecpar, CodecContext());
+
         m_bufferSize = width*height*4;
         m_encodingBuffer = reinterpret_cast<uint8_t*>( av_malloc( m_bufferSize ) );
     }

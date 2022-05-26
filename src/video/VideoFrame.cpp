@@ -1,5 +1,7 @@
 #include "VideoFrame.h"
 
+#include <iostream>
+
 /**
     Construct a VideoFrame object which allocates its own internal AVPicture.
 

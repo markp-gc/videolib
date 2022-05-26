@@ -7,10 +7,12 @@
 
 extern "C" {
 #include <libavutil/mathematics.h>
+#include <libavutil/error.h>
 }
 
 #include <assert.h>
 #include <time.h>
+#include <iostream>
 
 static double milliseconds( struct timespec& t )
 {
@@ -182,6 +184,9 @@ bool LibAvWriter::AddVideoStream( uint32_t width, uint32_t height, uint32_t fps,
         if ( success )
         {
             int err = avformat_write_header( m_formatContext, 0 );
+            if (err < 0) {
+              std::cerr << "Failure in avformat_write_header\n";
+            }
         }
     }
 
@@ -207,11 +212,14 @@ bool LibAvWriter::PutVideoFrame( VideoFrame& frame )
     AVFrame* srcFrame = av_frame_alloc();
 
     AVFrame* frameToSend;
-    if (  format == codecContext->pix_fmt )
+    if (format == codecContext->pix_fmt && width == codecContext->width && height == codecContext->height)
     {
         // No conversion needed so just copy pointers:
         frame.FillAvFramePointers( *srcFrame );
         frameToSend = srcFrame;
+        frameToSend->width = width;
+        frameToSend->height = height;
+        frameToSend->format = format;
     }
     else
     {
@@ -219,6 +227,9 @@ bool LibAvWriter::PutVideoFrame( VideoFrame& frame )
         {
             m_converter.Convert( frame, m_codecFrame->data, m_codecFrame->linesize );
             frameToSend = m_codecFrame;
+            frameToSend->width = codecContext->width;
+            frameToSend->height = codecContext->height;
+            frameToSend->format = codecContext->pix_fmt;
         }
         else
         {
