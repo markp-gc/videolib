@@ -1,7 +1,0 @@
-NDK_TOOLCHAIN_VERSION := 4.9
-
-APP_CPPFLAGS += -D__STDC_CONSTANT_MACROS -D__STDC_LIMIT_MACROS -std=c++11 -fexceptions -frtti
-
-APP_STL := c++_shared
-
-APP_ABI := x86

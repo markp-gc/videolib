@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="app_name">PuppyBot Control</string>
-    <string name="app_description">Control robot via Android</string>
-    <string name="default_address">puppypc:2000</string>
-    <string name="cameraViewDescription">Displays live feed from robot\'s camera</string>
-    <string name="wifiIconDescription">Displays Wi-Fi Status</string>
-    <string name="ipAddressEntryDescription">Enter the IP and port of the robot</string>
-</resources>
