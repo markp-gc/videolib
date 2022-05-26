@@ -35,7 +35,7 @@ void RunWriter( FFMpegCustomIO& videoIO )
     BOOST_CHECK( streamCreated );
 
     uint8_t* buffer;
-    int err = posix_memalign( (void**)&buffer, 16, 640*480 );
+    int err = posix_memalign( (void**)&buffer, 16, FRAME_WIDTH*FRAME_HEIGHT );
     BOOST_CHECK_EQUAL( 0, err );
 
     VideoFrame frame( buffer, AV_PIX_FMT_GRAY8, FRAME_WIDTH, FRAME_HEIGHT, FRAME_WIDTH );
@@ -63,11 +63,9 @@ void RunReader( FFMpegCustomIO& videoIn )
     int decodedCount = 0;
     while ( reader.GetFrame() )
     {
-        reader.ExtractLuminanceImage( buffer, 640 );
-        BOOST_CHECK_EQUAL( buffer[0], decodedCount );
-        if (buffer[0] != decodedCount) {
-          std::cerr << "img value: " << (int)buffer[0] << " expected: " << (int)decodedCount << "\n";
-        }
+        reader.ExtractLuminanceImage(buffer, FRAME_WIDTH);
+        BOOST_CHECK_EQUAL(reader.GetFrameWidth(), STREAM_WIDTH);
+        BOOST_CHECK_EQUAL(reader.GetFrameHeight(), STREAM_HEIGHT);
 
         /// timespec stamp = reader.GetFrameTimestamp();
         /// @todo Implement user settable timestamp and test it here.
