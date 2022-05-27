@@ -34,7 +34,7 @@ void RunWriter( FFMpegCustomIO& videoIO )
     bool streamCreated = writer.AddVideoStream( STREAM_WIDTH, STREAM_HEIGHT, 30, video::FourCc( 'F','M','P','4' ) );
     BOOST_CHECK( streamCreated );
 
-    uint8_t* buffer;
+    uint8_t* buffer = nullptr;
     int err = posix_memalign( (void**)&buffer, 16, FRAME_WIDTH*FRAME_HEIGHT );
     BOOST_CHECK_EQUAL( 0, err );
 
@@ -52,7 +52,7 @@ void RunWriter( FFMpegCustomIO& videoIO )
 
 void RunReader( FFMpegCustomIO& videoIn )
 {
-    uint8_t* buffer;
+    uint8_t* buffer = nullptr;
     int err = posix_memalign( (void**)&buffer, 16, FRAME_WIDTH*FRAME_HEIGHT );
     BOOST_CHECK_EQUAL( 0, err );
 
