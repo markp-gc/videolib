@@ -5,6 +5,7 @@
 #define __VIDEO_FRAME_H__
 
 extern "C" {
+#include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 }
 

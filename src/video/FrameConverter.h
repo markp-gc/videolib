@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 extern "C" {
+#include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>
 }
 
