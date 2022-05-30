@@ -37,9 +37,9 @@ public:
 
 private:
     AVStream* m_stream;
-    const AVCodec*  m_codec;
-    uint32_t  m_bufferSize;
-    uint8_t*  m_encodingBuffer;
+    AVCodec* m_codec;
+    uint32_t m_bufferSize;
+    uint8_t* m_encodingBuffer;
 };
 
 #endif /* __LIB_AV_VIDEO_STREAM_H__ */

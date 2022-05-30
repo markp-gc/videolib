@@ -6,8 +6,6 @@ find_package(Boost COMPONENTS unit_test_framework REQUIRED)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET
-    libavdevice
-    libavfilter
     libavformat
     libavcodec
     libswresample
