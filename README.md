@@ -18,3 +18,46 @@ control data or telemetry) and maintaining the throughput of bulk transfers (vid
 conflicting requirements between small packets and bulk data transmission over standard protocols see:
 - [Analyzing the effect of TCP and server population on massively multiplayer games](https://dl.acm.org/doi/abs/10.1155/2014/602403)
 - [Redundant bundling in TCP to reduce perceived latency for time-dependent thin streams](https://ieeexplore.ieee.org/abstract/document/4489685)
+
+## Building
+
+Install dependencies (described below) and then use CMake:
+
+```
+mkdir build
+cd build
+cmake -G Ninja ..
+ninja -j32
+```
+
+## Installing Dependencies
+
+The only library dependency is a compatible version of FFmpeg version.
+
+### Ubuntu 18/20
+
+On these versions of Ubuntu the standard apt packaged version of libavformat (fork of FFmpeg 3.6) is compatible:
+
+```
+sudo apt install libavformat-dev
+```
+
+### Mac OSX
+
+The only tested configuration is FFmpeg 4.0, Mac OSX 11.6.5, Xcode 13.2.
+
+The following should be enough to build and install a compatible version of FFmpeg (note that you will need brew):
+
+```
+git clone https://github.com/FFmpeg/FFmpeg.git
+cd FFmpeg
+git checkout release/4.0
+brew install nasm
+./configure --enable-shared --enable-small --extra-cflags='-O3'  --enable-gpl
+make -j16
+make install
+```
+
+### Other Platforms
+
+If you can build and install the correct version of FFMpeg in a place that CMake can find it then it might work...

@@ -40,6 +40,7 @@ public:
     timespec GetFrameTimestamp() const;
 
     void ExtractLuminanceImage( uint8_t* data, int stride );
+    void ExtractRgbaImage( uint8_t* data, int stride );
     void ExtractRgbImage( uint8_t* data, int stride );
     void ExtractBgrImage( uint8_t* data, int stride );
     void ExtractRgb565Image( uint8_t* data, int stride );

@@ -287,6 +287,11 @@ void LibAvCapture::ExtractRgbImage( uint8_t* data, int stride )
     FrameConversion( AV_PIX_FMT_RGB24, data, stride );
 }
 
+void LibAvCapture::ExtractRgbaImage( uint8_t* data, int stride )
+{
+    FrameConversion( AV_PIX_FMT_RGBA, data, stride );
+}
+
 void LibAvCapture::ExtractBgrImage( uint8_t* data, int stride )
 {
     FrameConversion( AV_PIX_FMT_BGR24, data, stride );
