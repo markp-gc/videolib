@@ -53,7 +53,7 @@ git clone https://github.com/FFmpeg/FFmpeg.git
 cd FFmpeg
 git checkout release/4.0
 brew install nasm
-./configure --enable-shared --enable-small --extra-cflags='-O3'  --enable-gpl
+./configure --enable-shared --enable-libx264 --enable-gpl --disable-programs
 make -j16
 make install
 ```
