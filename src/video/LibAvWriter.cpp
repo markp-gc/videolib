@@ -8,6 +8,7 @@
 extern "C" {
 #include <libavutil/mathematics.h>
 #include <libavutil/error.h>
+#include <libavutil/opt.h>
 }
 
 #include <assert.h>
@@ -242,7 +243,7 @@ bool LibAvWriter::PutVideoFrame( VideoFrame& frame )
     lastConvertTime_ms = milliseconds(t2) - milliseconds(t1);
 
     m_codecFrame->pts += 1;
-    srcFrame->pts = m_codecFrame->pts; /** @todo - allow caller to specify timestamp */
+    frameToSend->pts = m_codecFrame->pts; /** @todo - allow caller to specify timestamp */
     bool success = WriteCodecFrame( frameToSend );
     return success;
 }
@@ -273,9 +274,6 @@ bool LibAvWriter::WriteCodecFrame( AVFrame* frame )
 
     if ( err == 0 && packetOk == 1 )
     {
-        // Note: not sure if we need to do this anymore as it gets set in encode_video2:
-        pkt.pts = av_rescale_q( codecContext->coded_frame->pts, codecContext->time_base, m_stream->TimeBase() );
-
         if ( codecContext->coded_frame->key_frame )
         {
             pkt.flags |= AV_PKT_FLAG_KEY;
