@@ -42,22 +42,39 @@ On these versions of Ubuntu the standard apt packaged version of libavformat (fo
 sudo apt install libavformat-dev
 ```
 
+If you want to use a more recent version of FFMpeg then install nasm:
+
+```
+sudo apt install nasm
+```
+and follow the build from source instructions below.
+
+
 ### Mac OSX
 
-The only tested configuration is FFmpeg 4.0, Mac OSX 11.6.5, Xcode 13.2.
-
-The following should be enough to build and install a compatible version of FFmpeg (note that you will need brew):
+The only tested configuration is FFmpeg 4.4, Mac OSX 11.6.5, Xcode 13.2. Use brew to install nasm:
 
 ```
-git clone https://github.com/FFmpeg/FFmpeg.git
-cd FFmpeg
-git checkout release/4.0
 brew install nasm
-./configure --enable-shared --enable-libx264 --enable-gpl --disable-programs
-make -j16
-make install
 ```
+
+and then follow the build from source instructions below.
+
 
 ### Other Platforms
 
 If you can build and install the correct version of FFMpeg in a place that CMake can find it then it might work...
+
+
+## FFMpeg Build from Source Instructions
+
+The following should be enough to build and install a compatible version of FFmpeg (note that you will need to have installed nasm using your package manager):
+
+```
+git clone https://github.com/FFmpeg/FFmpeg.git
+cd FFmpeg
+git checkout release/4.4
+./configure --enable-shared --enable-libx264 --enable-gpl --disable-programs --enable-rpath
+make -j32
+make install
+```
