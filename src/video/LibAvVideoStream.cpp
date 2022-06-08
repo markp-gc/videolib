@@ -70,9 +70,9 @@ LibAvVideoStream::LibAvVideoStream( AVFormatContext* context, uint32_t width, ui
         CodecContext()->codec_id  = codecId;
         CodecContext()->codec_tag = fourcc;
         CodecContext()->pix_fmt = LibAvVideoStream::ChooseCodecFormat( codecId, AV_PIX_FMT_RGB24 );
-        CodecContext()->bit_rate = 5000000;
+        CodecContext()->bit_rate = 8000000;
         CodecContext()->bit_rate_tolerance = 1000000;
-        CodecContext()->gop_size = 100;
+        CodecContext()->gop_size = 30;
         // B frames induce latency and buffering which we do not want for a live stream:
         CodecContext()->max_b_frames = 0;
 
