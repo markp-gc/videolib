@@ -10,6 +10,8 @@
 #include <stdint.h>
 #include <unistd.h>
 
+#include <string>
+
 extern "C" {
 
 #include <libavcodec/avcodec.h>
@@ -63,7 +65,7 @@ private:
     FILE* m_fp;
     uint8_t* m_buffer;
     AVIOContext* m_io;
-    char m_fileName[64];
+    std::string m_fileName;
 };
 
 #endif /* __FFMPEG_CUSTOM_IO_H__ */

@@ -54,7 +54,7 @@ FFMpegFileIO::FFMpegFileIO( const char* filename, bool input )
         m_fp = fopen( filename, "wb" );
     }
 
-    strncpy( m_fileName, filename, sizeof( m_fileName ) );
+    m_fileName = filename;
 
     m_buffer = (uint8_t*)av_malloc( BUFFER_SIZE + AV_INPUT_BUFFER_PADDING_SIZE );
     assert( m_buffer != 0 );
@@ -75,7 +75,7 @@ FFMpegFileIO::~FFMpegFileIO()
 
 const char* FFMpegFileIO::GetStreamName() const
 {
-    return m_fileName;
+    return m_fileName.c_str();
 }
 
 /**
