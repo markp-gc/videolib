@@ -23,14 +23,14 @@ ninja -j32
 
 ## Installing Dependencies
 
-The only external dependency is a compatible version of FFmpeg (see below).
+The key external dependency is a compatible version of FFmpeg (see below). Other dependencies should work with package manager provided versions.
 
-### Ubuntu 18/20 Instructions
+### Ubuntu 18/20/22 Instructions
 
 On these versions of Ubuntu the standard apt packaged version of libavformat (a fork of FFmpeg 3.6) is compatible:
 
 ```
-sudo apt install libavformat-dev
+sudo apt install libavformat-dev libswscale-dev pkg-config libboost-dev libboost-test-dev
 ```
 
 However, if you want to use a more recent version of FFMpeg then first install nasm:
