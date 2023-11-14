@@ -154,7 +154,12 @@ bool LibAvWriter::AddVideoStream( uint32_t width, uint32_t height, uint32_t fps,
         if ( m_stream->IsValid() )
         {
             m_codecFrame = av_frame_alloc();
-            int err = avpicture_alloc( reinterpret_cast<AVPicture*>( m_codecFrame ), m_stream->CodecContext()->pix_fmt, m_stream->CodecContext()->width, m_stream->CodecContext()->height );
+            int err = avpicture_alloc(
+              reinterpret_cast<AVPicture*>( m_codecFrame ),
+              m_stream->CodecContext()->pix_fmt,
+              m_stream->CodecContext()->width,
+              m_stream->CodecContext()->height
+            );
             assert( err == 0 );
 
             m_codecFrame->pts = 0;
@@ -259,13 +264,15 @@ bool LibAvWriter::WriteCodecFrame( AVFrame* frame )
 
     AVCodecContext* codecContext = m_stream->CodecContext();
     AVPacket pkt;
+    av_init_packet(&pkt);
+
     // Note: used to set pkt.stream_index but encode_video2 now seems to set it using the codec context.
     pkt.data = m_stream->Buffer();
     pkt.size = m_stream->BufferSize();
-    int packetOk;
 
     struct timespec t1;
     struct timespec t2;
+    int packetOk;
 
     clock_gettime( CLOCK_MONOTONIC, &t1 );
     int err = avcodec_encode_video2( codecContext, &pkt, frame, &packetOk );
