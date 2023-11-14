@@ -101,6 +101,7 @@ BOOST_AUTO_TEST_CASE(TestVideo)
         LibAvWriter unusedWriter( noFile ); // Construct with default IO otherwise file might be created
         LibAvCapture reader( "test.avi" );
     }
+
     // Check no file opened after writer was destroyed:
     struct stat info;
     int fileCreated = stat( noFile, &info );

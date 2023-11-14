@@ -82,6 +82,10 @@ void VideoFrame::FillAvFramePointers( AVFrame& frame ) const
     frame.data[1] = m_picture.data[1];
     frame.data[2] = m_picture.data[2];
     frame.data[3] = m_picture.data[3];
+    frame.extended_data[0] = m_picture.data[0];
+    frame.extended_data[1] = m_picture.data[1];
+    frame.extended_data[2] = m_picture.data[2];
+    frame.extended_data[3] = m_picture.data[3];
     frame.linesize[0] = m_picture.linesize[0];
     frame.linesize[1] = m_picture.linesize[1];
     frame.linesize[2] = m_picture.linesize[2];

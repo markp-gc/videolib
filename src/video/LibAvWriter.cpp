@@ -204,53 +204,59 @@ bool LibAvWriter::AddVideoStream( uint32_t width, uint32_t height, uint32_t fps,
     @note If the width and height of the VideoFrame do not match those of the stream, the image will be scaled.
     @note If a colour video stream has not been setup then the video will be converted to greyscale.
 */
-bool LibAvWriter::PutVideoFrame( VideoFrame& frame )
-{
-    const int width  = frame.GetWidth();
-    const int height = frame.GetHeight();
-    const AVPixelFormat format = frame.GetAvPixelFormat();
-    AVCodecContext* codecContext = m_stream->CodecContext();
+bool LibAvWriter::PutVideoFrame( VideoFrame& frame ) {
+  const int width  = frame.GetWidth();
+  const int height = frame.GetHeight();
+  const AVPixelFormat format = frame.GetAvPixelFormat();
+  AVCodecContext* codecContext = m_stream->CodecContext();
 
-    struct timespec t1;
-    struct timespec t2;
-    clock_gettime( CLOCK_MONOTONIC, &t1 );
+  struct timespec t1;
+  struct timespec t2;
+  clock_gettime(CLOCK_MONOTONIC, &t1);
 
-    AVFrame* srcFrame = av_frame_alloc();
+  AVFrame* srcFrame = nullptr;
+  AVFrame* frameToSend = nullptr;
 
-    AVFrame* frameToSend;
-    if (format == codecContext->pix_fmt && width == codecContext->width && height == codecContext->height)
-    {
-        // No conversion needed so just copy pointers:
-        frame.FillAvFramePointers( *srcFrame );
-        frameToSend = srcFrame;
-        frameToSend->width = width;
-        frameToSend->height = height;
-        frameToSend->format = format;
+  if (format == codecContext->pix_fmt && width == codecContext->width && height == codecContext->height) {
+    // No conversion needed so just copy pointers:
+    srcFrame = av_frame_alloc();
+    frame.FillAvFramePointers(*srcFrame);
+    frameToSend = srcFrame;
+  } else {
+    if ( m_converter.Configure( width, height, format, codecContext->width, codecContext->height, codecContext->pix_fmt ) ) {
+      m_converter.Convert( frame, m_codecFrame->data, m_codecFrame->linesize );
+      frameToSend = m_codecFrame;
+    } else {
+      // Could not configure the frame convertor:
+      return false;
     }
-    else
-    {
-        if ( m_converter.Configure( width, height, format, codecContext->width, codecContext->height, codecContext->pix_fmt ) )
-        {
-            m_converter.Convert( frame, m_codecFrame->data, m_codecFrame->linesize );
-            frameToSend = m_codecFrame;
-            frameToSend->width = codecContext->width;
-            frameToSend->height = codecContext->height;
-            frameToSend->format = codecContext->pix_fmt;
-        }
-        else
-        {
-            // Could not configure the frame convertor:
-            return false;
-        }
-    }
+  }
 
-    clock_gettime( CLOCK_MONOTONIC, &t2 );
-    lastConvertTime_ms = milliseconds(t2) - milliseconds(t1);
+  frameToSend->width = codecContext->width;
+  frameToSend->height = codecContext->height;
+  frameToSend->format = codecContext->pix_fmt;
 
-    m_codecFrame->pts += 1;
-    frameToSend->pts = m_codecFrame->pts; /** @todo - allow caller to specify timestamp */
-    bool success = WriteCodecFrame( frameToSend );
-    return success;
+  clock_gettime(CLOCK_MONOTONIC, &t2);
+  lastConvertTime_ms = milliseconds(t2) - milliseconds(t1);
+
+  m_codecFrame->pts += 1;
+  frameToSend->pts = m_codecFrame->pts; /** @todo - allow caller to specify timestamp */
+  bool success = WriteCodecFrame(frameToSend);
+
+  if (srcFrame) {
+    // The data pointers were just references so do not deallocate:
+    srcFrame->data[0] = nullptr;
+    srcFrame->data[1] = nullptr;
+    srcFrame->data[2] = nullptr;
+    srcFrame->data[3] = nullptr;
+    srcFrame->extended_data[0] = nullptr;
+    srcFrame->extended_data[1] = nullptr;
+    srcFrame->extended_data[2] = nullptr;
+    srcFrame->extended_data[3] = nullptr;
+    av_frame_free(&srcFrame);
+  }
+
+  return success;
 }
 
 /**
