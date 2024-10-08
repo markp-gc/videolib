@@ -44,10 +44,10 @@ and then follow the build from source instructions below.
 
 ### Mac OSX Instructions
 
-The only tested configuration is FFmpeg 4.4, Mac OSX 11.6.5, Xcode 13.2. First use brew to install nasm:
+The only tested configuration is FFmpeg 4.4, Mac OSX 11.6.5, Xcode 13.2. First use brew to install pkg-config, nasm, and libx264:
 
 ```
-brew install nasm
+brew install pkg-config nasm x264
 ```
 
 and then follow the build from source instructions below.
