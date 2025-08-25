@@ -1,5 +1,4 @@
 #define BOOST_TEST_MAIN
-#define BOOST_TEST_DYN_LINK
 
 #include <boost/test/unit_test.hpp>
 
@@ -9,6 +8,7 @@
 #include "../video/FFmpegCustomIO.h"
 #include "../video/VideoFrame.h"
 #include "../video/FFmpegStdFunctionIO.h"
+#include "../../include/platform_memory.h"
 
 #include <string>
 #include <iostream>
@@ -34,9 +34,8 @@ void RunWriter( FFMpegCustomIO& videoIO )
     bool streamCreated = writer.AddVideoStream( STREAM_WIDTH, STREAM_HEIGHT, 30, video::FourCc( 'F','M','P','4' ) );
     BOOST_CHECK( streamCreated );
 
-    uint8_t* buffer = nullptr;
-    int err = posix_memalign( (void**)&buffer, 16, FRAME_WIDTH*FRAME_HEIGHT );
-    BOOST_CHECK_EQUAL( 0, err );
+    uint8_t* buffer = static_cast<uint8_t*>(platform::aligned_alloc(FRAME_WIDTH*FRAME_HEIGHT, 16));
+    BOOST_CHECK( buffer != nullptr );
 
     VideoFrame frame( buffer, AV_PIX_FMT_GRAY8, FRAME_WIDTH, FRAME_HEIGHT, FRAME_WIDTH );
 
@@ -47,14 +46,13 @@ void RunWriter( FFMpegCustomIO& videoIO )
         BOOST_CHECK( frameWritten );
     }
 
-    free( buffer );
+    platform::aligned_free( buffer );
 }
 
 void RunReader( FFMpegCustomIO& videoIn )
 {
-    uint8_t* buffer = nullptr;
-    int err = posix_memalign( (void**)&buffer, 16, FRAME_WIDTH*FRAME_HEIGHT );
-    BOOST_CHECK_EQUAL( 0, err );
+    uint8_t* buffer = static_cast<uint8_t*>(platform::aligned_alloc(FRAME_WIDTH*FRAME_HEIGHT, 16));
+    BOOST_CHECK( buffer != nullptr );
 
     // Now try to read back the same video
     LibAvCapture reader( videoIn );
@@ -76,7 +74,7 @@ void RunReader( FFMpegCustomIO& videoIn )
 
     BOOST_CHECK_EQUAL( 256, decodedCount );
 
-    free( buffer );
+    platform::aligned_free( buffer );
 }
 
 /**
