@@ -17,9 +17,14 @@ message(STATUS "INC: ${LIBAV_INCLUDE_DIRS}")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
-add_compile_options(-Wall -Wextra -Werror -Wno-deprecated-declarations)
-set(CMAKE_CXX_FLAGS_DEBUG "-g")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+
+if (MSVC)
+    add_compile_options(/Wall)
+else()
+    add_compile_options(-Wall -Wextra -Werror -Wno-deprecated-declarations)
+    set(CMAKE_CXX_FLAGS_DEBUG "-g")
+    set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+endif()
 
 include_directories(${LIBAV_INCLUDE_DIRS})
 

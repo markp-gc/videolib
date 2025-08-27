@@ -12,12 +12,14 @@ extern "C" {
 }
 
 #include <assert.h>
-#include <time.h>
+#include <chrono>
 #include <iostream>
 
-static double milliseconds( struct timespec& t )
+static double milliseconds_elapsed(const std::chrono::steady_clock::time_point& start,
+                                   const std::chrono::steady_clock::time_point& end)
 {
-    return t.tv_sec*1000.0 + (0.000001*t.tv_nsec );
+    auto duration = end - start;
+    return std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(duration).count();
 }
 
 /**
@@ -210,9 +212,7 @@ bool LibAvWriter::PutVideoFrame( VideoFrame& frame ) {
   const AVPixelFormat format = frame.GetAvPixelFormat();
   AVCodecContext* codecContext = m_stream->CodecContext();
 
-  struct timespec t1;
-  struct timespec t2;
-  clock_gettime(CLOCK_MONOTONIC, &t1);
+  auto t1 = std::chrono::steady_clock::now();
 
   AVFrame* srcFrame = nullptr;
   AVFrame* frameToSend = nullptr;
@@ -236,8 +236,8 @@ bool LibAvWriter::PutVideoFrame( VideoFrame& frame ) {
   frameToSend->height = codecContext->height;
   frameToSend->format = codecContext->pix_fmt;
 
-  clock_gettime(CLOCK_MONOTONIC, &t2);
-  lastConvertTime_ms = milliseconds(t2) - milliseconds(t1);
+  auto t2 = std::chrono::steady_clock::now();
+  lastConvertTime_ms = milliseconds_elapsed(t1, t2);
 
   m_codecFrame->pts += 1;
   frameToSend->pts = m_codecFrame->pts; /** @todo - allow caller to specify timestamp */
@@ -276,14 +276,12 @@ bool LibAvWriter::WriteCodecFrame( AVFrame* frame )
     pkt.data = m_stream->Buffer();
     pkt.size = m_stream->BufferSize();
 
-    struct timespec t1;
-    struct timespec t2;
     int packetOk;
 
-    clock_gettime( CLOCK_MONOTONIC, &t1 );
+    auto t1 = std::chrono::steady_clock::now();
     int err = avcodec_encode_video2( codecContext, &pkt, frame, &packetOk );
-    clock_gettime( CLOCK_MONOTONIC, &t2 );
-    lastEncodeTime_ms = milliseconds(t2) - milliseconds(t1);
+    auto t2 = std::chrono::steady_clock::now();
+    lastEncodeTime_ms = milliseconds_elapsed(t1, t2);
 
     if ( err == 0 && packetOk == 1 )
     {
@@ -292,10 +290,10 @@ bool LibAvWriter::WriteCodecFrame( AVFrame* frame )
             pkt.flags |= AV_PKT_FLAG_KEY;
         }
 
-        clock_gettime( CLOCK_MONOTONIC, &t1 );
+        t1 = std::chrono::steady_clock::now();
         err = av_write_frame( m_formatContext, &pkt );
-        clock_gettime( CLOCK_MONOTONIC, &t2 );
-        lastPacketWriteTime_ms = milliseconds(t2) - milliseconds(t1);
+        t2 = std::chrono::steady_clock::now();
+        lastPacketWriteTime_ms = milliseconds_elapsed(t1, t2);
 
         ok = err == 0;
     }

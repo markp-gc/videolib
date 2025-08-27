@@ -1,13 +1,11 @@
 #include "FFmpegCustomIO.h"
 
-//#include <iostream>
 #include <assert.h>
 
 int fd_write_packet( void* opaque, uint8_t* buffer, int size )
 {
     FFMpegFileIO* file = reinterpret_cast<FFMpegFileIO*>( opaque );
     int fd = fileno( file->m_fp );
-    //std::cerr << "socket_write_packet: " << size << " bytes" << std::endl;
     return write( fd, buffer, size );
 }
 
@@ -23,7 +21,6 @@ int fd_read_packet( void* opaque, uint8_t* buffer, int size )
         numBytes =  -1;
     }
 
-    //std::cerr << "fd_read_packet: bytes requested :=" << size << " bytes, received := " << numBytes << std::endl;
     return numBytes;
 }
 
