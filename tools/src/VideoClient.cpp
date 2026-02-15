@@ -30,7 +30,7 @@ bool VideoClient::InitialiseVideoStream( const std::chrono::seconds& videoTimeou
     ResetAvTimeout();
 
     // Create a video reader object that uses function/callback IO:
-    m_videoIO.reset( new FFMpegStdFunctionIO( FFMpegCustomIO::ReadBuffer,
+    m_videoIO.reset( new FFMpegStdFunctionIO( FFMpegStdFunctionIO::ReadCallbackTag{},
                                               std::bind( &VideoClient::ReadPacket, std::ref(*this), std::placeholders::_1, std::placeholders::_2 ) ) );
     m_streamer.reset( new LibAvCapture( *m_videoIO ) );
     if ( m_streamer->IsOpen() == false )

@@ -17,12 +17,6 @@ extern "C" {
 */
 void LibAvCapture::InitLibAvCodec()
 {
-    static int called = 0;
-    if ( called == 0 )
-    {
-        called = 1;
-        av_register_all();
-    }
 }
 
 /**
@@ -35,6 +29,8 @@ void LibAvCapture::InitLibAvCodec()
 void LibAvCapture::Init( const char* streamName )
 {
     InitLibAvCodec();
+
+    m_eof = false;
 
     m_formatContext = avformat_alloc_context();
 
@@ -62,7 +58,7 @@ void LibAvCapture::Init( const char* streamName )
     m_videoStream = -1;
     for(unsigned int i=0; i<m_formatContext->nb_streams; i++)
     {
-        if(m_formatContext->streams[i]->codec->codec_type==AVMEDIA_TYPE_VIDEO)
+        if(m_formatContext->streams[i]->codecpar->codec_type==AVMEDIA_TYPE_VIDEO)
         {
             m_videoStream = i;
             break;
@@ -75,14 +71,25 @@ void LibAvCapture::Init( const char* streamName )
         return;
     }
 
-    av_dump_format( m_formatContext, m_videoStream, m_formatContext->filename, 0 );
-
-    // Get a pointer to the codec context for the video stream
-    m_codecContext = m_formatContext->streams[m_videoStream]->codec;
+    av_dump_format( m_formatContext, m_videoStream, m_formatContext->url, 0 );
 
     // Find the decoder for the video stream
-    m_codec = avcodec_find_decoder( m_codecContext->codec_id );
+    m_codec = avcodec_find_decoder( m_formatContext->streams[m_videoStream]->codecpar->codec_id );
     if( m_codec == 0 )
+    {
+        m_open = false;
+        return;
+    }
+
+    m_codecContext = avcodec_alloc_context3( m_codec );
+    if ( m_codecContext == 0 )
+    {
+        m_open = false;
+        return;
+    }
+
+    int err = avcodec_parameters_to_context( m_codecContext, m_formatContext->streams[m_videoStream]->codecpar );
+    if ( err < 0 )
     {
         m_open = false;
         return;
@@ -118,7 +125,8 @@ LibAvCapture::LibAvCapture( const char* videoFile )
     m_formatContext ( 0 ),
     m_customIO      ( 0 ),
     m_codecContext  ( 0 ),
-    m_open ( false )
+    m_open ( false ),
+    m_eof ( false )
 {
     Init( videoFile );
 }
@@ -134,7 +142,8 @@ LibAvCapture::LibAvCapture( FFMpegCustomIO& customIO )
     m_formatContext ( 0 ),
     m_customIO      ( &customIO ),
     m_codecContext  ( 0 ),
-    m_open ( false )
+    m_open ( false ),
+    m_eof ( false )
 {
     Init( m_customIO->GetStreamName() );
 }
@@ -143,8 +152,8 @@ LibAvCapture::~LibAvCapture()
 {
     if ( m_open )
     {
-        av_free( m_avFrame );
-        avcodec_close( m_codecContext );
+        av_frame_free( &m_avFrame );
+        avcodec_free_context( &m_codecContext );
 
         if ( m_customIO == 0 )
         {
@@ -197,45 +206,71 @@ bool LibAvCapture::GetFrame()
     }
 
     bool success = false;
-    int frameFinished;
-    AVPacket packet;
-    int eof;
-    while( (eof = av_read_frame( m_formatContext, &packet)) == 0 )
+    int eof = 0;
+    AVPacket* packet = av_packet_alloc();
+    if ( packet == nullptr )
     {
-        // Is this a packet from the video stream?
-        if( packet.stream_index == m_videoStream )
-        {
-            // Decode video frame
-            int bytes = avcodec_decode_video2( m_codecContext, m_avFrame, &frameFinished, &packet );
+        return false;
+    }
 
-            // Did we get a video frame?
-            if( bytes >=0 && frameFinished )
+    while ( !success )
+    {
+        if ( !m_eof )
+        {
+            eof = av_read_frame( m_formatContext, packet );
+            if ( eof < 0 )
             {
-                success = true;
-                av_free_packet( &packet );
+                m_eof = true;
+            }
+        }
+
+        if ( !m_eof )
+        {
+            if ( packet->stream_index != m_videoStream )
+            {
+                av_packet_unref( packet );
+                continue;
+            }
+
+            int sendErr = avcodec_send_packet( m_codecContext, packet );
+            av_packet_unref( packet );
+            if ( sendErr < 0 )
+            {
+                break;
+            }
+        }
+        else
+        {
+            int sendErr = avcodec_send_packet( m_codecContext, nullptr );
+            if ( sendErr < 0 )
+            {
                 break;
             }
         }
 
-        av_free_packet( &packet );
-    }
-
-    if ( success == false )
-    {
-        if ( m_codecContext->codec->capabilities & AV_CODEC_CAP_DELAY )
+        int recvErr = avcodec_receive_frame( m_codecContext, m_avFrame );
+        if ( recvErr == 0 )
         {
-            // av_read_frame reached the end of input
-            // but there might be more buffered frames:
-            packet.data = 0;
-            packet.size = 0;
-            int bytes = avcodec_decode_video2( m_codecContext, m_avFrame, &frameFinished, &packet );
-            if( bytes >=0 && frameFinished )
+            success = true;
+        }
+        else if ( recvErr == AVERROR(EAGAIN) )
+        {
+            if ( m_eof )
             {
-                success = true;
-                /// @todo - why don't we call 'av_free_packet( &packet )' here?
+                break;
             }
         }
+        else if ( recvErr == AVERROR_EOF )
+        {
+            break;
+        }
+        else
+        {
+            break;
+        }
     }
+
+    av_packet_free( &packet );
 
     return success;
 }

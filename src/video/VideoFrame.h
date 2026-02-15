@@ -7,6 +7,7 @@
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
+#include <libavutil/frame.h>
 }
 
 /**
@@ -23,8 +24,9 @@ public:
     void operator = ( const VideoFrame& ) = delete;
     void operator = ( VideoFrame&& ) = delete;
 
-    AVPicture& GetAvPicture();
-    const AVPicture& GetAvPicture() const;
+    uint8_t** GetData();
+    const uint8_t* const* GetData() const;
+    const int* GetLineSize() const;
 
     void FillAvFramePointers( AVFrame& frame ) const;
 
@@ -33,7 +35,8 @@ public:
     AVPixelFormat GetAvPixelFormat() const;
 
 private:
-    AVPicture     m_picture;
+    uint8_t*      m_data[AV_NUM_DATA_POINTERS];
+    int           m_linesize[AV_NUM_DATA_POINTERS];
     AVPixelFormat m_format;
     int         m_width;
     int         m_height;
@@ -41,4 +44,3 @@ private:
 };
 
 #endif /* __VIDEO_FRAME_H__ */
-

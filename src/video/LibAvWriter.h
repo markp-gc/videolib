@@ -40,9 +40,9 @@ protected:
     bool WriteCodecFrame( AVFrame* );
 
 private:
-    static const int BUFFER_SIZE = AV_INPUT_BUFFER_MIN_SIZE+(640*480*4);
+    static const int BUFFER_SIZE = AV_INPUT_BUFFER_PADDING_SIZE+(640*480*4);
 
-    AVOutputFormat*  m_outputFormat;
+    const AVOutputFormat*  m_outputFormat;
     AVFormatContext* m_formatContext;
     FFMpegCustomIO*  m_customIO;
     AVFrame*         m_codecFrame;
@@ -61,4 +61,3 @@ public:
 };
 
 #endif /* __LIB_AV_WRITER_H__ */
-

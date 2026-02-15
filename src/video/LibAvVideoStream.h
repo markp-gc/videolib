@@ -25,7 +25,7 @@ public:
     bool IsValid() const;
 
     AVCodecContext* CodecContext();
-    AVCodec* Codec();
+    const AVCodec* Codec();
     uint32_t BufferSize() const;
     uint8_t* Buffer();
 
@@ -37,10 +37,10 @@ public:
 
 private:
     AVStream* m_stream;
-    AVCodec* m_codec;
+    const AVCodec* m_codec;
+    AVCodecContext* m_codecContext;
     uint32_t m_bufferSize;
     uint8_t* m_encodingBuffer;
 };
 
 #endif /* __LIB_AV_VIDEO_STREAM_H__ */
-

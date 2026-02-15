@@ -54,12 +54,12 @@ private:
     AVFormatContext* m_formatContext;
     FFMpegCustomIO*  m_customIO;
     AVCodecContext*  m_codecContext;
-    AVCodec*         m_codec;
+    const AVCodec*   m_codec;
     AVFrame*         m_avFrame;
     int              m_videoStream;
     FrameConverter   m_converter;
     bool m_open;
+    bool m_eof;
 };
 
 #endif /* __LIB_AV_CAPTURE_H__ */
-

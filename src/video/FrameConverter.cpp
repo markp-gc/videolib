@@ -66,10 +66,8 @@ bool FrameConverter::Convert( const VideoFrame& frame, uint8_t* dst[], int dstSt
 {
     if ( m_context != 0 )
     {
-        const AVPicture& picture = frame.GetAvPicture();
-        sws_scale( m_context, picture.data, picture.linesize, 0, frame.GetHeight(), dst, dstStride );
+        sws_scale( m_context, frame.GetData(), frame.GetLineSize(), 0, frame.GetHeight(), dst, dstStride );
     }
 
     return m_context != 0;
 }
-

@@ -13,12 +13,18 @@
 */
 class FFMpegStdFunctionIO : public FFMpegCustomIO
 {
-friend int std_function_packet( void* opaque, uint8_t* buffer, int size );
+friend int std_function_read_packet( void* opaque, uint8_t* buffer, int size );
+friend int std_function_write_packet( void* opaque, const uint8_t* buffer, int size );
 
 public:
-    typedef const std::function< int( uint8_t* buffer, int size ) > callback_t;
+    typedef const std::function< int( uint8_t* buffer, int size ) > read_callback_t;
+    typedef const std::function< int( const uint8_t* buffer, int size ) > write_callback_t;
 
-    FFMpegStdFunctionIO( FFMpegCustomIO::BufferType direction, callback_t&& callable );
+    struct ReadCallbackTag { };
+    struct WriteCallbackTag { };
+
+    FFMpegStdFunctionIO( ReadCallbackTag, read_callback_t&& callable );
+    FFMpegStdFunctionIO( WriteCallbackTag, write_callback_t&& callable );
     virtual ~FFMpegStdFunctionIO();
 
     virtual AVIOContext* GetAVIOContext();
@@ -34,8 +40,8 @@ private:
     AVIOContext* m_io;
     uint8_t* m_buffer;
 
-    callback_t m_callback;
+    read_callback_t m_readCallback;
+    write_callback_t m_writeCallback;
 };
 
 #endif /* __FFMPEG_STD_FUNCTION_IO_H__ */
-

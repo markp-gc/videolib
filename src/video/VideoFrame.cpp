@@ -1,11 +1,15 @@
 #include "VideoFrame.h"
 
+extern "C" {
+#include <libavutil/imgutils.h>
+}
+
 #include <iostream>
 
 /**
-    Construct a VideoFrame object which allocates its own internal AVPicture.
+    Construct a VideoFrame object which allocates its own internal image buffers.
 
-    The AVPicture will be freed in the destructor.
+    The image buffers will be freed in the destructor.
 */
 VideoFrame::VideoFrame( AVPixelFormat format, uint32_t width, uint32_t height )
 :
@@ -14,7 +18,12 @@ VideoFrame::VideoFrame( AVPixelFormat format, uint32_t width, uint32_t height )
     m_height        ( height ),
     m_freePicture   ( true )
 {
-    avpicture_alloc( &m_picture, format, width, height );
+    int err = av_image_alloc(m_data, m_linesize, width, height, format, 32);
+    if ( err < 0 )
+    {
+        std::cerr << "av_image_alloc failed with error " << err << "\n";
+    }
+
 }
 
 /**
@@ -29,31 +38,27 @@ VideoFrame::VideoFrame( uint8_t* buffer, AVPixelFormat format, uint32_t width, u
     m_height        ( height ),
     m_freePicture   ( false )
 {
-    memset( &m_picture, 0 , sizeof(m_picture) );
+    memset( m_data, 0, sizeof(m_data) );
+    memset( m_linesize, 0, sizeof(m_linesize) );
 
-    m_picture.data[0] = buffer;
-    m_picture.data[1] = 0;
-    m_picture.data[2] = 0;
-    m_picture.data[3] = 0;
-    m_picture.linesize[0] = stride;
-    m_picture.linesize[1] = 0;
-    m_picture.linesize[2] = 0;
-    m_picture.linesize[3] = 0;
+    m_data[0] = buffer;
+    m_linesize[0] = stride;
 
     if ( format == AV_PIX_FMT_YUV420P )
     {
-        m_picture.data[1]   = buffer + (width*height);
-        m_picture.linesize[1] = width/2;
-        m_picture.data[2]   = m_picture.data[1] + (width*height/4);
-        m_picture.linesize[2] = width/2;
+        m_data[1] = buffer + (width*height);
+        m_linesize[1] = width/2;
+        m_data[2] = m_data[1] + (width*height/4);
+        m_linesize[2] = width/2;
     }
+
 }
 
 VideoFrame::~VideoFrame()
 {
     if ( m_freePicture )
     {
-        avpicture_free( &m_picture );
+        av_freep( &m_data[0] );
     }
 }
 
@@ -68,7 +73,7 @@ VideoFrame::~VideoFrame()
 }*/
 
 /**
-    Copy the internal AVPicture data pointers to the specified AVFrame.
+    Copy the internal frame data pointers to the specified AVFrame.
 
     @note This is intended for quick copyless transfers of frame data - no
     data is not copied only the pointers - hence the AVFrame parameter
@@ -78,28 +83,27 @@ VideoFrame::~VideoFrame()
 */
 void VideoFrame::FillAvFramePointers( AVFrame& frame ) const
 {
-    frame.data[0] = m_picture.data[0];
-    frame.data[1] = m_picture.data[1];
-    frame.data[2] = m_picture.data[2];
-    frame.data[3] = m_picture.data[3];
-    frame.extended_data[0] = m_picture.data[0];
-    frame.extended_data[1] = m_picture.data[1];
-    frame.extended_data[2] = m_picture.data[2];
-    frame.extended_data[3] = m_picture.data[3];
-    frame.linesize[0] = m_picture.linesize[0];
-    frame.linesize[1] = m_picture.linesize[1];
-    frame.linesize[2] = m_picture.linesize[2];
-    frame.linesize[3] = m_picture.linesize[3];
+    for ( int i = 0; i < AV_NUM_DATA_POINTERS; ++i )
+    {
+        frame.data[i] = m_data[i];
+        frame.extended_data[i] = m_data[i];
+        frame.linesize[i] = m_linesize[i];
+    }
 }
 
-AVPicture& VideoFrame::GetAvPicture()
+uint8_t** VideoFrame::GetData()
 {
-    return m_picture;
+    return m_data;
 }
 
-const AVPicture& VideoFrame::GetAvPicture() const
+const uint8_t* const* VideoFrame::GetData() const
 {
-    return m_picture;
+    return m_data;
+}
+
+const int* VideoFrame::GetLineSize() const
+{
+    return m_linesize;
 }
 
 int VideoFrame::GetWidth() const
@@ -116,4 +120,3 @@ AVPixelFormat VideoFrame::GetAvPixelFormat() const
 {
     return m_format;
 }
-

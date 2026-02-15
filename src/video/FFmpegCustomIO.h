@@ -22,7 +22,11 @@ extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 
+#if LIBAVFORMAT_VERSION_MAJOR >= 60
+int fd_write_packet( void* opaque, const uint8_t* buffer, int size );
+#else
 int fd_write_packet( void* opaque, uint8_t* buffer, int size );
+#endif
 int fd_read_packet( void* opaque, uint8_t* buffer, int size );
 
 } // end extern "C"
@@ -54,7 +58,11 @@ public:
 */
 class FFMpegFileIO : public FFMpegCustomIO
 {
+#if LIBAVFORMAT_VERSION_MAJOR >= 60
+friend int fd_write_packet( void* opaque, const uint8_t* buffer, int size );
+#else
 friend int fd_write_packet( void* opaque, uint8_t* buffer, int size );
+#endif
 friend int fd_read_packet( void* opaque, uint8_t* buffer, int size );
 
 public:
@@ -74,4 +82,3 @@ private:
 };
 
 #endif /* __FFMPEG_CUSTOM_IO_H__ */
-

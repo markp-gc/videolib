@@ -2,7 +2,7 @@
 
 #include <assert.h>
 
-int fd_write_packet( void* opaque, uint8_t* buffer, int size )
+int fd_write_packet( void* opaque, const uint8_t* buffer, int size )
 {
     FFMpegFileIO* file = reinterpret_cast<FFMpegFileIO*>( opaque );
     int fd = fileno( file->m_fp );
@@ -15,10 +15,9 @@ int fd_read_packet( void* opaque, uint8_t* buffer, int size )
     int fd = fileno( file->m_fp );
 
     int numBytes = read( fd, buffer, size );
-
-    if ( numBytes == 0 && feof(file->m_fp) )
+    if ( numBytes == 0 )
     {
-        numBytes =  -1;
+        return AVERROR_EOF;
     }
 
     return numBytes;
@@ -82,4 +81,3 @@ bool FFMpegFileIO::IoError() const
 {
     return m_io->error < 0;
 }
-

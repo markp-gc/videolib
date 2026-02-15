@@ -71,7 +71,7 @@ LibAvWriter::LibAvWriter( const char* videoFile )
         }
 
         m_formatContext->oformat = m_outputFormat;
-        snprintf( m_formatContext->filename, sizeof(m_formatContext->filename), "%s", videoFile );
+        m_formatContext->url = av_strdup( videoFile );
     }
 }
 
@@ -94,7 +94,7 @@ LibAvWriter::LibAvWriter( FFMpegCustomIO& customIO, const char* format, bool fra
     {
         m_outputFormat = av_guess_format( format, 0, 0 );
         m_formatContext->oformat = m_outputFormat;
-        snprintf( m_formatContext->filename, sizeof(m_formatContext->filename), "%s", customIO.GetStreamName() );
+        m_formatContext->url = av_strdup( customIO.GetStreamName() );
     }
 }
 
@@ -102,7 +102,6 @@ LibAvWriter::~LibAvWriter()
 {
     if ( m_stream && m_stream->IsValid() )
     {
-        avpicture_free( reinterpret_cast<AVPicture*>(m_codecFrame) );
         av_frame_free(&m_codecFrame);
         av_write_trailer( m_formatContext );
 
@@ -116,6 +115,11 @@ LibAvWriter::~LibAvWriter()
 
     if ( m_formatContext != 0 )
     {
+        if ( m_formatContext->url )
+        {
+            av_freep( &m_formatContext->url );
+        }
+
         avformat_free_context( m_formatContext );
     }
 }
@@ -157,16 +161,14 @@ bool LibAvWriter::AddVideoStream( uint32_t width, uint32_t height, uint32_t fps,
         if ( m_stream->IsValid() )
         {
             m_codecFrame = av_frame_alloc();
-            int err = avpicture_alloc(
-              reinterpret_cast<AVPicture*>( m_codecFrame ),
-              m_stream->CodecContext()->pix_fmt,
-              m_stream->CodecContext()->width,
-              m_stream->CodecContext()->height
-            );
+            m_codecFrame->format = m_stream->CodecContext()->pix_fmt;
+            m_codecFrame->width = m_stream->CodecContext()->width;
+            m_codecFrame->height = m_stream->CodecContext()->height;
+            int err = av_frame_get_buffer( m_codecFrame, 32 );
             assert( err == 0 );
 
             m_codecFrame->pts = 0;
-            av_dump_format( m_formatContext, 0, m_formatContext->filename, 1 );
+            av_dump_format( m_formatContext, 0, m_formatContext->url, 1 );
 
             // We don't check result of above because the following fails gracefully if m_codec==null
             err = avcodec_open2( m_stream->CodecContext(), m_stream->Codec(), 0 );
@@ -184,7 +186,7 @@ bool LibAvWriter::AddVideoStream( uint32_t width, uint32_t height, uint32_t fps,
         // We only need to call avio_open if we are not using custom I/O:
         if ( m_customIO == 0 )
         {
-            int err = avio_open( &m_formatContext->pb, m_formatContext->filename, AVIO_FLAG_WRITE );
+            int err = avio_open( &m_formatContext->pb, m_formatContext->url, AVIO_FLAG_WRITE );
             if ( err != 0 )
             {
                 success = false;
@@ -277,38 +279,55 @@ bool LibAvWriter::WriteCodecFrame( AVFrame* frame )
     assert( frame != 0 );
 
     AVCodecContext* codecContext = m_stream->CodecContext();
-    AVPacket pkt;
-    av_init_packet(&pkt);
-
-    // Let the encoder allocate its own output buffer:
-    pkt.data = nullptr;
-    pkt.size = 0;
-
-    int packetOk;
+    AVPacket* pkt = av_packet_alloc();
+    if ( !pkt )
+    {
+        return false;
+    }
 
     auto t1 = std::chrono::steady_clock::now();
-    int err = avcodec_encode_video2( codecContext, &pkt, frame, &packetOk );
+    int err = avcodec_send_frame( codecContext, frame );
     auto t2 = std::chrono::steady_clock::now();
     lastEncodeTime_ms = milliseconds_elapsed(t1, t2);
 
-    if ( err == 0 && packetOk == 1 )
+    if ( err == 0 )
     {
-        pkt.stream_index = m_stream->Index();
-        AVStream* st = m_formatContext->streams[pkt.stream_index];
-        av_packet_rescale_ts(&pkt, codecContext->time_base, st->time_base);
-        if (pkt.duration == 0)
-            pkt.duration = 1;
+        for ( ;; )
+        {
+            err = avcodec_receive_packet( codecContext, pkt );
+            if ( err == AVERROR(EAGAIN) || err == AVERROR_EOF )
+            {
+                break;
+            }
+            if ( err < 0 )
+            {
+                av_packet_unref( pkt );
+                break;
+            }
 
-        t1 = std::chrono::steady_clock::now();
-        err = av_interleaved_write_frame( m_formatContext, &pkt );
-        t2 = std::chrono::steady_clock::now();
-        lastPacketWriteTime_ms = milliseconds_elapsed(t1, t2);
+            pkt->stream_index = m_stream->Index();
+            AVStream* st = m_formatContext->streams[pkt->stream_index];
+            av_packet_rescale_ts( pkt, codecContext->time_base, st->time_base );
+            if ( pkt->duration == 0 )
+            {
+                pkt->duration = 1;
+            }
 
-        ok = err == 0;
+            t1 = std::chrono::steady_clock::now();
+            int writeErr = av_interleaved_write_frame( m_formatContext, pkt );
+            t2 = std::chrono::steady_clock::now();
+            lastPacketWriteTime_ms = milliseconds_elapsed(t1, t2);
+
+            ok = ( writeErr == 0 );
+            av_packet_unref( pkt );
+
+            if ( writeErr != 0 )
+            {
+                break;
+            }
+        }
     }
 
-    av_packet_unref(&pkt);
-
+    av_packet_free( &pkt );
     return ok;
 }
-

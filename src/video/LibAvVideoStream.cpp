@@ -58,6 +58,8 @@ AVPixelFormat LibAvVideoStream::ChooseCodecFormat( AVCodecID id, AVPixelFormat i
 LibAvVideoStream::LibAvVideoStream( AVFormatContext* context, uint32_t width, uint32_t height, uint32_t fps, int32_t fourcc )
 :
     m_stream    (0),
+    m_codec (0),
+    m_codecContext (0),
     m_encodingBuffer (0)
 {
     const AVCodecTag *tags[] = { avformat_get_riff_video_tags(), 0 };
@@ -67,33 +69,34 @@ LibAvVideoStream::LibAvVideoStream( AVFormatContext* context, uint32_t width, ui
     m_stream = avformat_new_stream( context, m_codec );
     if ( m_stream != 0 )
     {
-        CodecContext()->codec_id  = codecId;
-        CodecContext()->codec_tag = 0;
-        CodecContext()->pix_fmt = LibAvVideoStream::ChooseCodecFormat( codecId, AV_PIX_FMT_RGB24 );
-        CodecContext()->bit_rate = 12000000;
-        CodecContext()->bit_rate_tolerance = 4000000;
-        CodecContext()->gop_size = 30;
+        m_codecContext = avcodec_alloc_context3( m_codec );
+        m_codecContext->codec_id  = codecId;
+        m_codecContext->codec_tag = 0;
+        m_codecContext->pix_fmt = LibAvVideoStream::ChooseCodecFormat( codecId, AV_PIX_FMT_RGB24 );
+        m_codecContext->bit_rate = 12000000;
+        m_codecContext->bit_rate_tolerance = 4000000;
+        m_codecContext->gop_size = 30;
         // B frames induce latency and buffering which we do not want for a live stream:
-        CodecContext()->max_b_frames = 0;
+        m_codecContext->max_b_frames = 0;
 
-        CodecContext()->thread_count = 0;
-        CodecContext()->thread_type = FF_THREAD_SLICE;
+        m_codecContext->thread_count = 0;
+        m_codecContext->thread_type = FF_THREAD_SLICE;
 
         if (context->oformat && (context->oformat->flags & AVFMT_GLOBALHEADER)) {
-            CodecContext()->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+            m_codecContext->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
         }
 
         assert( width%2 == 0 );
         assert( height%2 == 0 );
-        CodecContext()->width = width;
-        CodecContext()->height = height;
-        CodecContext()->time_base.num = 1;
+        m_codecContext->width = width;
+        m_codecContext->height = height;
+        m_codecContext->time_base.num = 1;
         if ( fps == 0) { fps = 1; }
-        CodecContext()->time_base.den = fps; /** @todo - we want to enable non-fixed fps content so need to allow caller to specify time-base somehow. */
+        m_codecContext->time_base.den = fps; /** @todo - we want to enable non-fixed fps content so need to allow caller to specify time-base somehow. */
 
-        m_stream->time_base = CodecContext()->time_base;
+        m_stream->time_base = m_codecContext->time_base;
 
-        avcodec_parameters_from_context(m_stream->codecpar, CodecContext());
+        avcodec_parameters_from_context(m_stream->codecpar, m_codecContext);
 
         m_bufferSize = width*height*4;
         m_encodingBuffer = reinterpret_cast<uint8_t*>( av_malloc( m_bufferSize ) );
@@ -103,7 +106,7 @@ LibAvVideoStream::LibAvVideoStream( AVFormatContext* context, uint32_t width, ui
 LibAvVideoStream::~LibAvVideoStream()
 {
     av_free( m_encodingBuffer );
-    avcodec_close( m_stream->codec );
+    avcodec_free_context( &m_codecContext );
 }
 
 bool LibAvVideoStream::IsValid() const
@@ -118,10 +121,10 @@ bool LibAvVideoStream::IsValid() const
 */
 AVCodecContext* LibAvVideoStream::CodecContext()
 {
-    return m_stream->codec;
+    return m_codecContext;
 }
 
-AVCodec* LibAvVideoStream::Codec()
+const AVCodec* LibAvVideoStream::Codec()
 {
     return m_codec;
 }
@@ -150,5 +153,3 @@ AVRational LibAvVideoStream::TimeBase()
 {
     return m_stream->time_base;
 }
-
-

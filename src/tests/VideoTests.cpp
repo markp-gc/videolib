@@ -112,24 +112,21 @@ BOOST_AUTO_TEST_CASE(TestStdFunctionIO)
     string testFileName( "ofstream.avi" );
     ofstream outFile( testFileName, ios_base::out | ios_base::binary );
 
-    FFMpegStdFunctionIO videoOut( FFMpegCustomIO::WriteBuffer, [&](uint8_t* buffer, int size){
-        outFile.write( reinterpret_cast<char*>(buffer), size );
+    FFMpegStdFunctionIO videoOut( FFMpegStdFunctionIO::WriteCallbackTag{}, [&](const uint8_t* buffer, int size){
+        outFile.write( reinterpret_cast<const char*>(buffer), size );
         return size;
     });
 
     RunWriter( videoOut, video::FourCc( 'F','M','P','4' ) );
 
     ifstream inFile( testFileName, ios_base::in | ios_base::binary );
-    FFMpegStdFunctionIO videoIn( FFMpegCustomIO::ReadBuffer, [&](uint8_t* buffer, int size){
+    FFMpegStdFunctionIO videoIn( FFMpegStdFunctionIO::ReadCallbackTag{}, [&](uint8_t* buffer, int size){
         streamsize count = inFile.readsome( reinterpret_cast<char*>(buffer), size );
-        if ( inFile.good() )
+        if ( count == 0 )
         {
-            return static_cast<int>( count );
+            return AVERROR_EOF;
         }
-        else
-        {
-            return -1;
-        }
+        return static_cast<int>( count );
     });
 
     RunReader( videoIn );
@@ -148,8 +145,8 @@ BOOST_AUTO_TEST_CASE(TestH264FragmentedMp4)
     // Write H.264 video into fragmented MP4 via custom IO:
     {
         ofstream outFile( testFileName, ios_base::out | ios_base::binary );
-        FFMpegStdFunctionIO videoOut( FFMpegCustomIO::WriteBuffer, [&](uint8_t* buffer, int size){
-            outFile.write( reinterpret_cast<char*>(buffer), size );
+        FFMpegStdFunctionIO videoOut( FFMpegStdFunctionIO::WriteCallbackTag{}, [&](const uint8_t* buffer, int size){
+            outFile.write( reinterpret_cast<const char*>(buffer), size );
             return size;
         });
 
@@ -185,16 +182,13 @@ BOOST_AUTO_TEST_CASE(TestH264FragmentedMp4)
     // Read back the video using LibAvCapture to verify it is valid:
     {
         ifstream inFile( testFileName, ios_base::in | ios_base::binary );
-        FFMpegStdFunctionIO videoIn( FFMpegCustomIO::ReadBuffer, [&](uint8_t* buffer, int size){
+        FFMpegStdFunctionIO videoIn( FFMpegStdFunctionIO::ReadCallbackTag{}, [&](uint8_t* buffer, int size){
             streamsize count = inFile.readsome( reinterpret_cast<char*>(buffer), size );
-            if ( inFile.good() )
+            if ( count == 0 )
             {
-                return static_cast<int>( count );
+                return AVERROR_EOF;
             }
-            else
-            {
-                return -1;
-            }
+            return static_cast<int>( count );
         });
 
         LibAvCapture reader( videoIn );
