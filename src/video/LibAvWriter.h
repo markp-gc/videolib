@@ -27,7 +27,7 @@ private:
 
 public:
     LibAvWriter( const char* videoFile );
-    LibAvWriter( FFMpegCustomIO& customIO );
+    LibAvWriter( FFMpegCustomIO& customIO, const char* format = "m4v", bool fragmented = false );
     virtual ~LibAvWriter();
 
     bool IsOpen() const;
@@ -51,6 +51,7 @@ private:
     FrameConverter    m_converter;
 
     bool    m_open;
+    bool    m_fragmentedMp4;
 
 public:
     // For benchmarking only:

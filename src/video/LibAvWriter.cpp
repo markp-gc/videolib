@@ -56,7 +56,8 @@ LibAvWriter::LibAvWriter( const char* videoFile )
     m_formatContext  (0),
     m_customIO       (0),
     m_stream         (0),
-    m_open ( false )
+    m_open ( false ),
+    m_fragmentedMp4 ( false )
 {
     Init();
     if ( m_open )
@@ -80,18 +81,18 @@ LibAvWriter::LibAvWriter( const char* videoFile )
     @param customIO the custom io object that must provide an AVIOContext
     that is valid for output.
 */
-LibAvWriter::LibAvWriter( FFMpegCustomIO& customIO )
+LibAvWriter::LibAvWriter( FFMpegCustomIO& customIO, const char* format, bool fragmented )
 :
     m_formatContext  (0),
     m_customIO       (&customIO), // m_customIO ptr should not need to be deleted locally!
     m_stream         (0),
-    m_open ( false )
+    m_open ( false ),
+    m_fragmentedMp4 ( fragmented )
 {
     Init();
     if ( m_open )
     {
-        // This guesses the container format (e.g. .avi, .ogg):
-        m_outputFormat = av_guess_format( "m4v", 0, 0 );
+        m_outputFormat = av_guess_format( format, 0, 0 );
         m_formatContext->oformat = m_outputFormat;
         snprintf( m_formatContext->filename, sizeof(m_formatContext->filename), "%s", customIO.GetStreamName() );
     }
@@ -171,6 +172,7 @@ bool LibAvWriter::AddVideoStream( uint32_t width, uint32_t height, uint32_t fps,
             err = avcodec_open2( m_stream->CodecContext(), m_stream->Codec(), 0 );
             if ( err == 0 )
             {
+                avcodec_parameters_from_context(m_formatContext->streams[m_stream->Index()]->codecpar, m_stream->CodecContext());
                 success = true;
             }
         }
@@ -191,7 +193,13 @@ bool LibAvWriter::AddVideoStream( uint32_t width, uint32_t height, uint32_t fps,
 
         if ( success )
         {
-            int err = avformat_write_header( m_formatContext, 0 );
+            AVDictionary* opts = nullptr;
+            if ( m_fragmentedMp4 )
+            {
+                av_dict_set(&opts, "movflags", "frag_keyframe+empty_moov+default_base_moof", 0);
+            }
+            int err = avformat_write_header( m_formatContext, &opts );
+            av_dict_free(&opts);
             if (err < 0) {
               std::cerr << "Failure in avformat_write_header\n";
             }
@@ -272,9 +280,9 @@ bool LibAvWriter::WriteCodecFrame( AVFrame* frame )
     AVPacket pkt;
     av_init_packet(&pkt);
 
-    // Note: used to set pkt.stream_index but encode_video2 now seems to set it using the codec context.
-    pkt.data = m_stream->Buffer();
-    pkt.size = m_stream->BufferSize();
+    // Let the encoder allocate its own output buffer:
+    pkt.data = nullptr;
+    pkt.size = 0;
 
     int packetOk;
 
@@ -285,18 +293,21 @@ bool LibAvWriter::WriteCodecFrame( AVFrame* frame )
 
     if ( err == 0 && packetOk == 1 )
     {
-        if ( codecContext->coded_frame->key_frame )
-        {
-            pkt.flags |= AV_PKT_FLAG_KEY;
-        }
+        pkt.stream_index = m_stream->Index();
+        AVStream* st = m_formatContext->streams[pkt.stream_index];
+        av_packet_rescale_ts(&pkt, codecContext->time_base, st->time_base);
+        if (pkt.duration == 0)
+            pkt.duration = 1;
 
         t1 = std::chrono::steady_clock::now();
-        err = av_write_frame( m_formatContext, &pkt );
+        err = av_interleaved_write_frame( m_formatContext, &pkt );
         t2 = std::chrono::steady_clock::now();
         lastPacketWriteTime_ms = milliseconds_elapsed(t1, t2);
 
         ok = err == 0;
     }
+
+    av_packet_unref(&pkt);
 
     return ok;
 }

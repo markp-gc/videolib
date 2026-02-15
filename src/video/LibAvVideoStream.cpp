@@ -68,7 +68,7 @@ LibAvVideoStream::LibAvVideoStream( AVFormatContext* context, uint32_t width, ui
     if ( m_stream != 0 )
     {
         CodecContext()->codec_id  = codecId;
-        CodecContext()->codec_tag = fourcc;
+        CodecContext()->codec_tag = 0;
         CodecContext()->pix_fmt = LibAvVideoStream::ChooseCodecFormat( codecId, AV_PIX_FMT_RGB24 );
         CodecContext()->bit_rate = 12000000;
         CodecContext()->bit_rate_tolerance = 4000000;
@@ -78,6 +78,10 @@ LibAvVideoStream::LibAvVideoStream( AVFormatContext* context, uint32_t width, ui
 
         CodecContext()->thread_count = 0;
         CodecContext()->thread_type = FF_THREAD_SLICE;
+
+        if (context->oformat && (context->oformat->flags & AVFMT_GLOBALHEADER)) {
+            CodecContext()->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+        }
 
         assert( width%2 == 0 );
         assert( height%2 == 0 );
