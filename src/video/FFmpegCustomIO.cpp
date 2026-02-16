@@ -2,7 +2,7 @@
 
 #include <assert.h>
 
-int fd_write_packet( void* opaque, const uint8_t* buffer, int size )
+int fd_write_packet( void* opaque, uint8_t* buffer, int size )
 {
     FFMpegFileIO* file = reinterpret_cast<FFMpegFileIO*>( opaque );
     int fd = fileno( file->m_fp );

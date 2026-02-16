@@ -12,7 +12,7 @@ int std_function_read_packet( void* opaque, uint8_t* buffer, int size )
     return io.m_readCallback( buffer, size );
 }
 
-int std_function_write_packet( void* opaque, const uint8_t* buffer, int size )
+int std_function_write_packet( void* opaque, uint8_t* buffer, int size )
 {
     FFMpegStdFunctionIO& io = *reinterpret_cast<FFMpegStdFunctionIO*>( opaque );
     return io.m_writeCallback( buffer, size );
@@ -25,7 +25,7 @@ FFMpegStdFunctionIO::FFMpegStdFunctionIO( ReadCallbackTag, read_callback_t&& cal
     // allocate io context and its buffer:
     AllocateBuffer();
     int (*read_callback)(void*, uint8_t*, int) = nullptr;
-    int (*write_callback)(void*, const uint8_t*, int) = nullptr;
+    int (*write_callback)(void*, uint8_t*, int) = nullptr;
     read_callback = std_function_read_packet;
 
     m_io = avio_alloc_context( m_buffer, BUFFER_SIZE, 0, this, read_callback, write_callback, 0 );
@@ -39,7 +39,7 @@ FFMpegStdFunctionIO::FFMpegStdFunctionIO( WriteCallbackTag, write_callback_t&& c
     // allocate io context and its buffer:
     AllocateBuffer();
     int (*read_callback)(void*, uint8_t*, int) = nullptr;
-    int (*write_callback)(void*, const uint8_t*, int) = nullptr;
+    int (*write_callback)(void*, uint8_t*, int) = nullptr;
     write_callback = std_function_write_packet;
 
     m_io = avio_alloc_context( m_buffer, BUFFER_SIZE, 1, this, read_callback, write_callback, 0 );

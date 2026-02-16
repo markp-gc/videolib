@@ -14,11 +14,11 @@
 class FFMpegStdFunctionIO : public FFMpegCustomIO
 {
 friend int std_function_read_packet( void* opaque, uint8_t* buffer, int size );
-friend int std_function_write_packet( void* opaque, const uint8_t* buffer, int size );
+friend int std_function_write_packet( void* opaque, uint8_t* buffer, int size );
 
 public:
     typedef const std::function< int( uint8_t* buffer, int size ) > read_callback_t;
-    typedef const std::function< int( const uint8_t* buffer, int size ) > write_callback_t;
+    typedef const std::function< int( uint8_t* buffer, int size ) > write_callback_t;
 
     struct ReadCallbackTag { };
     struct WriteCallbackTag { };

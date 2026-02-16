@@ -13,6 +13,7 @@
 #include <string>
 #include <iostream>
 #include <fstream>
+#include <vector>
 
 #include <sys/stat.h>
 
@@ -208,4 +209,123 @@ BOOST_AUTO_TEST_CASE(TestH264FragmentedMp4)
     }
 
     ::remove( testFileName.c_str() );
+}
+
+namespace {
+struct PacketQueue {
+    std::vector<std::vector<uint8_t>> packets;
+    size_t index = 0;
+    size_t offset = 0;
+};
+
+int ReadFromPackets(PacketQueue& queue, uint8_t* buffer, int size)
+{
+    if (queue.index >= queue.packets.size())
+    {
+        return AVERROR_EOF;
+    }
+
+    int required = size;
+    while (required > 0 && queue.index < queue.packets.size())
+    {
+        const auto& packet = queue.packets[queue.index];
+        const int availableSize = static_cast<int>(packet.size() - queue.offset);
+
+        if (availableSize <= required)
+        {
+            std::copy(packet.begin() + queue.offset, packet.end(), buffer);
+            queue.offset = 0;
+            queue.index += 1;
+            buffer += availableSize;
+            required -= availableSize;
+        }
+        else
+        {
+            auto startItr = packet.begin() + queue.offset;
+            std::copy(startItr, startItr + required, buffer);
+            queue.offset += required;
+            required = 0;
+        }
+    }
+
+    return size - required;
+}
+}
+
+/**
+    Test fragmented MP4 streaming over packetized IO.
+    This mimics sending each write callback as a discrete packet.
+*/
+BOOST_AUTO_TEST_CASE(TestH264FragmentedMp4PacketizedIO)
+{
+    using namespace std;
+    const int numFrames = 64;
+    PacketQueue queue;
+
+    // Write H.264 video into fragmented MP4 via packetized IO:
+    {
+        FFMpegStdFunctionIO videoOut( FFMpegStdFunctionIO::WriteCallbackTag{}, [&](uint8_t* buffer, int size){
+            queue.packets.emplace_back(buffer, buffer + size);
+            return size;
+        });
+
+        LibAvWriter writer( videoOut, "mp4", true );
+        BOOST_CHECK( writer.IsOpen() );
+
+        bool streamCreated = writer.AddVideoStream( STREAM_WIDTH, STREAM_HEIGHT, 30, video::FourCc( 'H','2','6','4' ) );
+        BOOST_CHECK( streamCreated );
+
+        uint8_t* buffer = static_cast<uint8_t*>(platform::aligned_alloc(FRAME_WIDTH*FRAME_HEIGHT, 16));
+        BOOST_CHECK( buffer != nullptr );
+
+        VideoFrame frame( buffer, AV_PIX_FMT_GRAY8, FRAME_WIDTH, FRAME_HEIGHT, FRAME_WIDTH );
+
+        int framesWritten = 0;
+        for ( int i = 0; i < numFrames; ++i )
+        {
+            memset( buffer, i, FRAME_WIDTH*FRAME_HEIGHT );
+            if ( writer.PutVideoFrame( frame ) )
+            {
+                framesWritten += 1;
+            }
+        }
+
+        BOOST_CHECK( framesWritten > 0 );
+        BOOST_TEST_MESSAGE( "H.264 frames written: " << framesWritten << " / " << numFrames );
+
+        platform::aligned_free( buffer );
+    }
+
+    BOOST_CHECK( !queue.packets.empty() );
+    if ( !queue.packets.empty() )
+    {
+        const auto& firstPacket = queue.packets.front();
+        BOOST_CHECK( firstPacket.size() >= 8 );
+        if ( firstPacket.size() >= 8 )
+        {
+            BOOST_CHECK_EQUAL( std::string(reinterpret_cast<const char*>(&firstPacket[4]), 4), "ftyp" );
+        }
+    }
+
+    // Read back the video using LibAvCapture to verify it is valid:
+    {
+        FFMpegStdFunctionIO videoIn( FFMpegStdFunctionIO::ReadCallbackTag{}, [&](uint8_t* buffer, int size){
+            return ReadFromPackets(queue, buffer, size);
+        });
+
+        LibAvCapture reader( videoIn );
+        BOOST_CHECK( reader.IsOpen() );
+
+        int decodedCount = 0;
+        while ( reader.GetFrame() )
+        {
+            BOOST_CHECK_EQUAL(reader.GetFrameWidth(), STREAM_WIDTH);
+            BOOST_CHECK_EQUAL(reader.GetFrameHeight(), STREAM_HEIGHT);
+            reader.DoneFrame();
+            decodedCount += 1;
+        }
+
+        BOOST_CHECK( decodedCount > 0 );
+        BOOST_TEST_MESSAGE( "H.264 frames decoded: " << decodedCount );
+    }
 }
