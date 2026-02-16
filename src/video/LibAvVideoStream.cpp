@@ -3,6 +3,7 @@
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
+#include <libavutil/opt.h>
 }
 
 #include <assert.h>
@@ -75,7 +76,8 @@ LibAvVideoStream::LibAvVideoStream( AVFormatContext* context, uint32_t width, ui
         m_codecContext->pix_fmt = LibAvVideoStream::ChooseCodecFormat( codecId, AV_PIX_FMT_RGB24 );
         m_codecContext->bit_rate = 12000000;
         m_codecContext->bit_rate_tolerance = 4000000;
-        m_codecContext->gop_size = 30;
+        // Short GOP improves streaming recovery and reduces latency.
+        m_codecContext->gop_size = 15;
         // B frames induce latency and buffering which we do not want for a live stream:
         m_codecContext->max_b_frames = 0;
 
@@ -84,6 +86,14 @@ LibAvVideoStream::LibAvVideoStream( AVFormatContext* context, uint32_t width, ui
 
         if (context->oformat && (context->oformat->flags & AVFMT_GLOBALHEADER)) {
             m_codecContext->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+        }
+
+        if ( codecId == AV_CODEC_ID_H264 )
+        {
+            // Low-latency encoder tuning.
+            av_opt_set(m_codecContext->priv_data, "preset", "ultrafast", 0);
+            av_opt_set(m_codecContext->priv_data, "tune", "zerolatency", 0);
+            av_opt_set(m_codecContext->priv_data, "rc-lookahead", "0", 0);
         }
 
         assert( width%2 == 0 );

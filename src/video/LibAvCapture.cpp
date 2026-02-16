@@ -39,7 +39,11 @@ void LibAvCapture::Init( const char* streamName )
         m_formatContext->pb = m_customIO->GetAVIOContext();
     }
 
-    m_open = ( avformat_open_input( &m_formatContext, streamName, nullptr, 0 ) >= 0 );
+    AVDictionary* options = nullptr;
+    // Identify the custom IO as a streaming source to avoid probe warnings.
+    av_dict_set(&options, "protocol_whitelist", "file,pipe,crypto,data,rtp,udp,tcp,mmsh,mmst,mmsh", 0);
+    m_open = ( avformat_open_input( &m_formatContext, streamName, nullptr, &options ) >= 0 );
+    av_dict_free(&options);
 
     if ( m_open == false )
     {
