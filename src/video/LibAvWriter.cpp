@@ -198,7 +198,8 @@ bool LibAvWriter::AddVideoStream( uint32_t width, uint32_t height, uint32_t fps,
             AVDictionary* opts = nullptr;
             if ( m_fragmentedMp4 )
             {
-                av_dict_set(&opts, "movflags", "frag_keyframe+empty_moov+default_base_moof", 0);
+                // Fragment every frame to avoid keyframe-only bursty output when streaming.
+                av_dict_set(&opts, "movflags", "frag_keyframe+empty_moov+default_base_moof+frag_every_frame", 0);
             }
             int err = avformat_write_header( m_formatContext, &opts );
             av_dict_free(&opts);
